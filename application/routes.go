@@ -40,7 +40,6 @@ func (a *App) loadRoutes() {
 
 func (a *App) forwardRequest(serviceURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Printf("Forwarding request: %s %s\n", r.Method, r.URL.Path)
 
 		serviceURLParsed, err := url.Parse(serviceURL)
 		if err != nil {
