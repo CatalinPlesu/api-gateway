@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/CatalinPlesu/user-service/application"
+	"github.com/CatalinPlesu/api-gateway/application"
 )
 
 func main() {

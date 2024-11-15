@@ -1,13 +1,13 @@
 package application
 
 import (
+	"fmt"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-
-	"github.com/CatalinPlesu/user-service/handler"
-	"github.com/CatalinPlesu/user-service/repository/user"
 )
 
 func (a *App) loadRoutes() {
@@ -19,23 +19,36 @@ func (a *App) loadRoutes() {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	router.Route("/users", a.loadUserRoutes)
+	router.Route("/users", func(router chi.Router) {
+		router.Handle("/*", a.forwardRequest(a.config.UserServiceAddress))
+	})
+
+	router.Route("/channels", func(router chi.Router) {
+		router.Handle("/*", a.forwardRequest(a.config.ChannelServiceAddress))
+	})
+
+	router.Route("/messages", func(router chi.Router) {
+		router.Handle("/*", a.forwardRequest(a.config.MessageServiceAddress))
+	})
+
+	router.Route("/typing", func(router chi.Router) {
+		router.Handle("/*", a.forwardRequest(a.config.LiveTypingServiceAddress))
+	})
 
 	a.router = router
 }
 
-func (a *App) loadUserRoutes(router chi.Router) {
-	userHandler := &handler.User{
-		Repo: &user.RedisRepo{
-			Client: a.rdb,
-		},
-	}
+func (a *App) forwardRequest(serviceURL string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Printf("Forwarding request: %s %s\n", r.Method, r.URL.Path)
 
-	router.Post("/", userHandler.Create)                                   
-	router.Get("/", userHandler.List)                                      
-	// router.Get("/username/{username}", userHandler.GetByUsername)          
-	// router.Get("/displayname/{displayname}", userHandler.GetByDisplayName) 
-	router.Get("/{id}", userHandler.GetByID)                               
-	router.Put("/{id}", userHandler.UpdateByID)                            
-	router.Delete("/{id}", userHandler.DeleteByID)                         
+		serviceURLParsed, err := url.Parse(serviceURL)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to parse service URL: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		proxy := httputil.NewSingleHostReverseProxy(serviceURLParsed)
+		proxy.ServeHTTP(w, r)
+	}
 }
